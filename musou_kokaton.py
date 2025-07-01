@@ -126,6 +126,7 @@ class Bomb(pg.sprite.Sprite):
         self.rect.centerx = emy.rect.centerx
         self.rect.centery = emy.rect.centery+emy.rect.height//2
         self.speed = 6
+        self.state = "active"
 
     def update(self):
         """
@@ -242,6 +243,31 @@ class Score:
         screen.blit(self.image, self.rect)
 
 
+class EMP:
+    """
+    発動時に存在する敵機と爆弾を無効化する
+    発動条件：「e」キー押下かつスコアが20より大
+    消費スコア：20
+    """
+    def __init__(self, bombs: "Bomb",emys: "Enemy",  screen: pg.Surface):
+        for emy in emys:
+            emy.interval = math.inf
+            emy.image = pg.transform.laplacian(emy.image)
+
+        for bomb in bombs:
+            bomb.speed = bomb.speed // 2
+            bomb.state = "inactive"
+
+        self.img = pg.Surface((WIDTH, HEIGHT))
+        pg.draw.rect(self.img, (255, 255, 0), (0, 0, WIDTH, HEIGHT))
+        self.img.set_alpha(100)
+        self.rct = self.img.get_rect()
+        self.rct.center = ((WIDTH//2, HEIGHT//2))
+        screen.blit(self.img, self.rct)
+        pg.display.update()
+        time.sleep(0.05)
+        
+
 def main():
     pg.display.set_caption("真！こうかとん無双")
     screen = pg.display.set_mode((WIDTH, HEIGHT))
@@ -263,6 +289,10 @@ def main():
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 beams.add(Beam(bird))
+            if event.type == pg.KEYDOWN and event.key == pg.K_e and score.value > 20:
+                score.value -= 20
+                EMP(bombs, emys, screen)
+                        # if bomb.state == "inactive":
         screen.blit(bg_img, [0, 0])
 
         if tmr%200 == 0:  # 200フレームに1回，敵機を出現させる
@@ -283,6 +313,8 @@ def main():
             score.value += 1  # 1点アップ
 
         for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
+            if bomb.state == "inactive":
+                continue
             bird.change_img(8, screen)  # こうかとん悲しみエフェクト
             score.update(screen)
             pg.display.update()
