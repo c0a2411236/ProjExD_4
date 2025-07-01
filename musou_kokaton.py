@@ -153,6 +153,7 @@ class Bomb(pg.sprite.Sprite):
         self.rect.centerx = emy.rect.centerx
         self.rect.centery = emy.rect.centery+emy.rect.height//2
         self.speed = 6
+        self.state = "active"
 
     def update(self):
         """
@@ -268,6 +269,31 @@ class Score:
         self.image = self.font.render(f"Score: {self.value}", 0, self.color)
         screen.blit(self.image, self.rect)
 
+
+class EMP:
+    """
+    発動時に存在する敵機と爆弾を無効化する
+    発動条件：「e」キー押下かつスコアが20より大
+    消費スコア：20
+    """
+    def __init__(self, bombs: "Bomb",emys: "Enemy",  screen: pg.Surface):
+        for emy in emys:
+            emy.interval = math.inf
+            emy.image = pg.transform.laplacian(emy.image)
+
+        for bomb in bombs:
+            bomb.speed = bomb.speed // 2
+            bomb.state = "inactive"
+
+        self.img = pg.Surface((WIDTH, HEIGHT))
+        pg.draw.rect(self.img, (255, 255, 0), (0, 0, WIDTH, HEIGHT))
+        self.img.set_alpha(100)
+        self.rct = self.img.get_rect()
+        self.rct.center = ((WIDTH//2, HEIGHT//2))
+        screen.blit(self.img, self.rct)
+        pg.display.update()
+        time.sleep(0.05)
+        
 class Gravity(pg.sprite.Sprite):
     """
     重力場に関するクラス
@@ -308,6 +334,10 @@ def main():
                 return 0
             if event.type == pg.KEYDOWN and event.key == pg.K_SPACE:
                 beams.add(Beam(bird))
+            if event.type == pg.KEYDOWN and event.key == pg.K_e and score.value > 20:
+                score.value -= 20
+                EMP(bombs, emys, screen)
+                        # if bomb.state == "inactive":
 
             if event.type == pg.KEYDOWN and event.key == pg.K_RETURN:
                 if score.value >= 200:
@@ -339,6 +369,8 @@ def main():
 
 
         for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
+            if bomb.state == "inactive":
+                continue
             if bird.state == "hyper":  # 無敵状態の場合死なない
                 exps.add(Explosion(bomb, 50))  # 爆発エフェクト
                 score.value += 1  # 1点アップ
