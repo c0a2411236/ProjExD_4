@@ -41,6 +41,8 @@ class Bird(pg.sprite.Sprite):
     """
     ゲームキャラクター（こうかとん）に関するクラス
     """
+    state = "normal"  # 無敵でない通常状態の変数
+    hyper_life = 0  # 無敵時間の変数
     delta = {  # 押下キーと移動量の辞書
         pg.K_UP: (0, -1),
         pg.K_DOWN: (0, +1),
@@ -55,6 +57,8 @@ class Bird(pg.sprite.Sprite):
         引数2 xy：こうかとん画像の位置座標タプル
         """
         super().__init__()
+        # self.
+        # self.
         img0 = pg.transform.rotozoom(pg.image.load(f"fig/{num}.png"), 0, 0.9)
         img = pg.transform.flip(img0, True, False)  # デフォルトのこうかとん
         self.imgs = {
@@ -82,6 +86,19 @@ class Bird(pg.sprite.Sprite):
         self.image = pg.transform.rotozoom(pg.image.load(f"fig/{num}.png"), 0, 0.9)
         screen.blit(self.image, self.rect)
 
+    def invincible(self, key_lst: list[bool], score: int, screen: pg.Surface):
+        """
+        押下キーとスコアに応じて無敵になる
+        引数1 key_lst：押下キーの真理値リスト
+        引数2 score: スコア
+        """
+        
+        if key_lst[pg.K_RSHIFT] and (score >= 100):
+            self.image = pg.transform.laplacian(self.image)
+            self.state = "hyper"  # 無敵状態
+            self.hyper_life = 500  # 500フレームの無敵時間
+            screen.blit(self.image, self.rect)
+
     def update(self, key_lst: list[bool], screen: pg.Surface):
         """
         押下キーに応じてこうかとんを移動させる
@@ -99,7 +116,13 @@ class Bird(pg.sprite.Sprite):
         if not (sum_mv[0] == 0 and sum_mv[1] == 0):
             self.dire = tuple(sum_mv)
             self.image = self.imgs[self.dire]
-        screen.blit(self.image, self.rect)
+        if(self.hyper_life > 0):
+            self.hyper_life -= 1
+            self.image = pg.transform.laplacian(self.image)
+            screen.blit(self.image, self.rect)
+        else:
+            self.state = "normal"
+            screen.blit(self.image, self.rect)
 
 
 class Bomb(pg.sprite.Sprite):
@@ -247,7 +270,7 @@ def main():
     screen = pg.display.set_mode((WIDTH, HEIGHT))
     bg_img = pg.image.load(f"fig/pg_bg.jpg")
     score = Score()
-
+    
     bird = Bird(3, (900, 400))
     bombs = pg.sprite.Group()
     beams = pg.sprite.Group()
@@ -281,13 +304,22 @@ def main():
         for bomb in pg.sprite.groupcollide(bombs, beams, True, True).keys():  # ビームと衝突した爆弾リスト
             exps.add(Explosion(bomb, 50))  # 爆発エフェクト
             score.value += 1  # 1点アップ
+        
+        bird.invincible(key_lst, score.value, screen)
+        if key_lst[pg.K_RSHIFT] and (score.value >= 100): 
+             score.value -= 100
+
 
         for bomb in pg.sprite.spritecollide(bird, bombs, True):  # こうかとんと衝突した爆弾リスト
-            bird.change_img(8, screen)  # こうかとん悲しみエフェクト
-            score.update(screen)
-            pg.display.update()
-            time.sleep(2)
-            return
+            if bird.state == "hyper":  # 無敵状態の場合死なない
+                exps.add(Explosion(bomb, 50))  # 爆発エフェクト
+                score.value += 1  # 1点アップ
+            elif bird.state == "normal":
+                bird.change_img(8, screen)  # こうかとん悲しみエフェクト
+                score.update(screen)
+                pg.display.update()
+                time.sleep(2)
+                return
 
         bird.update(key_lst, screen)
         beams.update()
